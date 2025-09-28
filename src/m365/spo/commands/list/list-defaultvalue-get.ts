@@ -62,7 +62,7 @@ class SpoListDefaultValueGetCommand extends SpoCommand {
 
   public async commandAction(logger: Logger, args: CommandArgs): Promise<void> {
     if (this.verbose) {
-      await logger.logToStderr(`Retrieving default column values for list '${args.options.listId || args.options.listTitle || args.options.listUrl}'...`);
+      await logger.logToStderr(`Retrieving default column value for field '${args.options.fieldName}' in list '${args.options.listId || args.options.listTitle || args.options.listUrl}'...`);
       await logger.logToStderr('Retrieving list information...');
     }
 
@@ -71,15 +71,12 @@ class SpoListDefaultValueGetCommand extends SpoCommand {
       await logger.logToStderr('Retrieving default column values...');
     }
 
-    let defaultValues: DefaultColumnValue[];
     const defaultValuesXml = await this.getDefaultColumnValuesXml(args.options.webUrl, listServerRelUrl);
     if (defaultValuesXml === null) {
-      if (this.verbose) {
-        await logger.logToStderr(`No default column values found.`);
-      }
-      return;
+      throw `No default column values found.`;
     }
-    defaultValues = this.convertXmlToJson(defaultValuesXml);
+
+    let defaultValues = this.convertXmlToJson(defaultValuesXml);
     defaultValues = defaultValues.filter(d => d.fieldName.toLowerCase() === args.options.fieldName.toLowerCase());
 
     if (args.options.folderUrl) {
@@ -90,7 +87,11 @@ class SpoListDefaultValueGetCommand extends SpoCommand {
       defaultValues = defaultValues.filter(d => d.folderUrl.toLowerCase() === listServerRelUrl.toLowerCase());
     }
 
-    await logger.log(defaultValues);
+    if (defaultValues.length === 0) {
+      throw `No default column value found for field '${args.options.fieldName}'${args.options.folderUrl ? ` in folder '${args.options.folderUrl}'` : ''}.`;
+    }
+
+    await logger.log(defaultValues[0]);
   }
 
   private async getServerRelativeListUrl(options: Options): Promise<string> {
