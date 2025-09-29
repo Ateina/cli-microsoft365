@@ -61,37 +61,48 @@ class SpoListDefaultValueGetCommand extends SpoCommand {
   }
 
   public async commandAction(logger: Logger, args: CommandArgs): Promise<void> {
-    if (this.verbose) {
-      await logger.logToStderr(`Retrieving default column value for field '${args.options.fieldName}' in list '${args.options.listId || args.options.listTitle || args.options.listUrl}'...`);
-      await logger.logToStderr('Retrieving list information...');
-    }
+    try {
+      if (this.verbose) {
+        await logger.logToStderr(`Retrieving default column value for field '${args.options.fieldName}' in list '${args.options.listId || args.options.listTitle || args.options.listUrl}'...`);
+        await logger.logToStderr('Retrieving list information...');
+      }
 
-    const listServerRelUrl = await this.getServerRelativeListUrl(args.options);
-    if (this.verbose) {
-      await logger.logToStderr('Retrieving default column values...');
-    }
+      const listServerRelUrl = await this.getServerRelativeListUrl(args.options);
+      if (this.verbose) {
+        await logger.logToStderr('Retrieving default column values...');
+      }
 
-    const defaultValuesXml = await this.getDefaultColumnValuesXml(args.options.webUrl, listServerRelUrl);
-    if (defaultValuesXml === null) {
-      throw `No default column values found.`;
-    }
+      let defaultValues: DefaultColumnValue[];
+      try {
+        const defaultValuesXml = await this.getDefaultColumnValuesXml(args.options.webUrl, listServerRelUrl);
+        defaultValues = this.convertXmlToJson(defaultValuesXml);
+      }
+      catch (err: any) {
+        if (err.status !== 404) {
+          throw err;
+        }
+        // For lists that have never had default column values set, the client_LocationBasedDefaults.html file does not exist.
+        defaultValues = [];
+      }
+      defaultValues = defaultValues.filter(d => d.fieldName.toLowerCase() === args.options.fieldName.toLowerCase());
 
-    let defaultValues = this.convertXmlToJson(defaultValuesXml);
-    defaultValues = defaultValues.filter(d => d.fieldName.toLowerCase() === args.options.fieldName.toLowerCase());
+      if (args.options.folderUrl) {
+        const serverRelFolderUrl = urlUtil.removeTrailingSlashes(urlUtil.getServerRelativePath(args.options.webUrl, args.options.folderUrl));
+        defaultValues = defaultValues.filter(d => d.folderUrl.toLowerCase() === serverRelFolderUrl.toLowerCase());
+      }
+      else {
+        defaultValues = defaultValues.filter(d => d.folderUrl.toLowerCase() === listServerRelUrl.toLowerCase());
+      }
 
-    if (args.options.folderUrl) {
-      const serverRelFolderUrl = urlUtil.removeTrailingSlashes(urlUtil.getServerRelativePath(args.options.webUrl, args.options.folderUrl));
-      defaultValues = defaultValues.filter(d => d.folderUrl.toLowerCase() === serverRelFolderUrl.toLowerCase());
-    }
-    else {
-      defaultValues = defaultValues.filter(d => d.folderUrl.toLowerCase() === listServerRelUrl.toLowerCase());
-    }
+      if (defaultValues.length === 0) {
+        throw `No default column value found for field '${args.options.fieldName}'${args.options.folderUrl ? ` in folder '${args.options.folderUrl}'` : ''}.`;
+      }
 
-    if (defaultValues.length === 0) {
-      throw `No default column value found for field '${args.options.fieldName}'${args.options.folderUrl ? ` in folder '${args.options.folderUrl}'` : ''}.`;
+      await logger.log(defaultValues[0]);
     }
-
-    await logger.log(defaultValues[0]);
+    catch (err: any) {
+      this.handleRejectedODataJsonPromise(err);
+    }
   }
 
   private async getServerRelativeListUrl(options: Options): Promise<string> {
@@ -132,26 +143,16 @@ class SpoListDefaultValueGetCommand extends SpoCommand {
     }
   }
 
-  private async getDefaultColumnValuesXml(webUrl: string, listServerRelUrl: string): Promise<string | null> {
-    try {
-      const requestOptions: CliRequestOptions = {
-        url: `${webUrl}/_api/Web/GetFileByServerRelativePath(decodedUrl='${formatting.encodeQueryParameter(listServerRelUrl + '/Forms/client_LocationBasedDefaults.html')}')/$value`,
-        headers: {
-          accept: 'application/json;odata=nometadata'
-        },
-        responseType: 'json'
-      };
-      const defaultValuesXml = await request.get<string>(requestOptions);
-      return defaultValuesXml;
-    }
-    catch (err: any) {
-      // For lists that have never had default column values set, the client_LocationBasedDefaults.html file does not exist.
-      if (err.status === 404) {
-        return null;
-      }
-
-      throw err;
-    }
+  private async getDefaultColumnValuesXml(webUrl: string, listServerRelUrl: string): Promise<string> {
+    const requestOptions: CliRequestOptions = {
+      url: `${webUrl}/_api/Web/GetFileByServerRelativePath(decodedUrl='${formatting.encodeQueryParameter(listServerRelUrl + '/Forms/client_LocationBasedDefaults.html')}')/$value`,
+      headers: {
+        accept: 'application/json;odata=nometadata'
+      },
+      responseType: 'json'
+    };
+    const defaultValuesXml = await request.get<string>(requestOptions);
+    return defaultValuesXml;
   }
 
   private convertXmlToJson(xml: string): DefaultColumnValue[] {

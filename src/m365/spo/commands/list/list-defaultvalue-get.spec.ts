@@ -273,6 +273,27 @@ describe(commands.LIST_DEFAULTVALUE_GET, () => {
       new CommandError("No default column value found for field 'NonExistentField'."));
   });
 
+  it('correctly logs error when field default value not set for specified folder', async () => {
+    sinon.stub(request, 'get').callsFake(async (opts) => {
+      if (opts.url === `${siteUrl}/_api/Web/GetList('${listUrl}')?$expand=RootFolder&$select=RootFolder/ServerRelativeUrl,BaseTemplate`) {
+        return {
+          BaseTemplate: 101,
+          RootFolder: {
+            ServerRelativeUrl: listUrl
+          }
+        };
+      }
+      if (opts.url === `${siteUrl}/_api/Web/GetFileByServerRelativePath(decodedUrl='${formatting.encodeQueryParameter(listUrl + '/Forms/client_LocationBasedDefaults.html')}')/$value`) {
+        return defaultColumnXml;
+      }
+
+      throw `Invalid GET request: ${opts.url}`;
+    });
+
+    await assert.rejects(command.action(logger, { options: { webUrl: siteUrl, listUrl: listUrl, fieldName: fieldName, folderUrl: '/sites/marketing/Shared Documents/NonExistentFolder' } }),
+      new CommandError("No default column value found for field 'DocumentType' in folder '/sites/marketing/Shared Documents/NonExistentFolder'."));
+  });
+
   it('correctly handles when list has no default values set', async () => {
     sinon.stub(request, 'get').callsFake(async (opts) => {
       if (opts.url === `${siteUrl}/_api/Web/GetList('${listUrl}')?$expand=RootFolder&$select=RootFolder/ServerRelativeUrl,BaseTemplate`) {
@@ -286,8 +307,28 @@ describe(commands.LIST_DEFAULTVALUE_GET, () => {
       throw 'Invalid request: ' + opts.url;
     });
 
-    await command.action(logger, { options: { webUrl: siteUrl, listUrl: listUrl, fieldName: fieldName } });
-    assert(loggerLogSpy.notCalled);
+    await assert.rejects(command.action(logger, { options: { webUrl: siteUrl, listUrl: listUrl, fieldName: fieldName } }),
+      new CommandError(`No default column value found for field '${fieldName}'.`));
+  });
+
+  it('correctly handles error when retrieving column list', async () => {
+    sinon.stub(request, 'get').rejects({ error: { 'odata.error': { message: { value: 'An error has occurred' } } } });
+
+    await assert.rejects(command.action(logger, { options: { webUrl: siteUrl, listId: listId } }),
+      new CommandError('An error has occurred'));
+  });
+
+  it('correctly handles error when retrieving column default values', async () => {
+    sinon.stub(request, 'get').callsFake(async (opts) => {
+      if (opts.url === `${siteUrl}/_api/Web/GetList('${listUrl}')?$expand=RootFolder&$select=RootFolder/ServerRelativeUrl,BaseTemplate`) {
+        return { RootFolder: { ServerRelativeUrl: listUrl }, BaseTemplate: 101 };
+      }
+
+      throw { error: { 'odata.error': { message: { value: 'An error has occurred' } } } };
+    });
+
+    await assert.rejects(command.action(logger, { options: { webUrl: siteUrl, listUrl: listUrl } }),
+      new CommandError('An error has occurred'));
   });
 
   it('correctly handles error when list is not found', async () => {
