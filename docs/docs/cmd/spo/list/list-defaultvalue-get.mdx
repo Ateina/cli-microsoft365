@@ -1,4 +1,6 @@
 import Global from '/docs/cmd/_global.mdx';
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # spo list defaultvalue get
 
@@ -47,3 +49,51 @@ Get default column value from a specific folder of the list
 ```sh
 m365 spo list defaultvalue get --webUrl https://contoso.sharepoint.com/sites/Marketing --listTitle Logos --fieldName Company --folderUrl "/sites/Marketing/Logos/Contoso"
 ```
+
+## Response
+
+<Tabs>
+  <TabItem value="JSON">
+
+  ```json
+  {
+    "fieldName": "Company",
+    "fieldValue": "Contoso",
+    "folderUrl": "sites/Marketing/Logos"
+  }
+  ```
+
+  </TabItem>
+  <TabItem value="Text">
+
+  ```text
+  fieldName : Company
+  fieldValue: Contoso
+  folderUrl : sites/Marketing/Logos
+  ```
+
+  </TabItem>
+  <TabItem value="CSV">
+
+  ```csv
+  fieldName,fieldValue,folderUrl
+  Company,Contoso,sites/Marketing/Logos
+  ```
+
+  </TabItem>
+  <TabItem value="Markdown">
+
+  ```md
+  # spo list defaultvalue get --webUrl "https://contoso.sharepoint.com/sites/Marketing" --listTitle "Logos" --fieldName "Company"
+
+  Date: 2/20/2023
+
+  Property | Value
+  ---------|-------
+  fieldName | Company
+  fieldValue | Contoso
+  folderUrl | sites/Marketing/Logos
+  ```
+
+  </TabItem>
+</Tabs>
