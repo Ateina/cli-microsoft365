@@ -123,6 +123,11 @@ describe(commands.LIST_DEFAULTVALUE_GET, () => {
     assert.strictEqual(actual.success, false);
   });
 
+  it('fails validation if fieldName is not specified', async () => {
+    const actual = commandOptionsSchema.safeParse({ webUrl: siteUrl, listId: listId });
+    assert.strictEqual(actual.success, false);
+  });
+
   it('succeeds validation if folderUrl is specified', async () => {
     const actual = commandOptionsSchema.safeParse({ webUrl: siteUrl, listId: listId, fieldName: fieldName, folderUrl: folderUrl });
     assert.strictEqual(actual.success, true);
