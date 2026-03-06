@@ -1996,6 +1996,11 @@ const sidebars: SidebarsConfig = {
               type: 'doc',
               label: 'website get',
               id: 'cmd/pp/website/website-get'
+            },
+            {
+              type: 'doc',
+              label: 'website webrole list',
+              id: 'cmd/pp/website/website-webrole-list'
             }
           ]
         }
